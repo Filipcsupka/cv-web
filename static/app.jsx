@@ -25,7 +25,7 @@ const Root = () => {
 
   const navItems = [
     { id: "hero", label: "status" },
-    { id: "stack", label: "stack" },
+    { id: "stack", label: "toolbox" },
     { id: "experience", label: "exp" },
     { id: "about", label: "about" },
     { id: "contact", label: "contact" },

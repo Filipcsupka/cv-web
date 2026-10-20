@@ -392,17 +392,16 @@ const ctaChat = {
 };
 
 /* ─── Section header ──────────────────────────────────────────── */
-function SectionHead({ cmd, title, idx, total }) {
+function SectionHead({ cmd, title }) {
   return (
     <div style={{ marginBottom: 32 }}>
       <div style={{
-        display: "flex", justifyContent: "space-between", alignItems: "baseline",
+        display: "flex", justifyContent: "flex-start", alignItems: "baseline",
         fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "#5f7f9e",
         letterSpacing: "0.08em", marginBottom: 10,
         overflow: "hidden",
       }}>
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginRight: 8 }}>{cmd}</span>
-        <span style={{ flexShrink: 0 }}>[{idx}/{total}]</span>
       </div>
       <h2 style={{
         fontFamily: "'Orbitron', monospace", fontSize: "clamp(1.5rem, 3.2vw, 2.4rem)",

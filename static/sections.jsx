@@ -2,340 +2,194 @@
 const { useState: useS, useEffect: useE, useRef: useR, useMemo: useM } = React;
 const D2 = window.CV_DATA;
 
-/* ─── STACK SECTION — literally builds the stack as you scroll ──────── */
+/* ─── TOOLBOX + FLOWS — what I run, where I ran it, and how work moves ─── */
+const MONO = "'JetBrains Mono', monospace";
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
+
 function StackSection() {
   const ref = useR(null);
   const p = useElementProgress(ref);
-  const t = useTick();
   const isMobile = useIsMobile();
-  const layers = D2.stackLayers;
-
-  const startP = 0.05;
-  const step = 0.052;
-
-  const innerRef = useR(null);
-
-  let activeIdx = 0;
-  layers.forEach((_, i) => {
-    const lp = startP + i * step;
-    if (Math.max(0, Math.min(1, (p - lp) * 12)) > 0.45) activeIdx = i;
-  });
+  const [sel, setSel] = useS("all");
+  const ctxs = D2.contexts;
+  const ctxColor = Object.fromEntries(ctxs.map((c) => [c.key, c.color]));
 
   return (
     <section id="stack" ref={ref} style={{
       position: "relative", zIndex: 2,
-      maxWidth: 1280, margin: "0 auto", padding: "60px 16px 100px",
+      maxWidth: 1180, margin: "0 auto", padding: "60px 16px 100px",
     }}>
-      <SectionHead cmd="$ helm install platform . --create-namespace --wait" title="BUILDING THE STACK" idx="01" total="06" />
+      <SectionHead cmd="$ helm list -A  # what I actually run, and where" title="TOOLBOX & FLOWS" />
 
-      <div style={{
-        color: "#a8bfd6", fontSize: 13, lineHeight: 1.7, maxWidth: 720,
-        marginBottom: 28, fontFamily: "'JetBrains Mono', monospace",
+      <p style={{
+        color: "#a8bfd6", fontSize: 13, lineHeight: 1.7, maxWidth: 640,
+        margin: "0 0 28px", fontFamily: MONO,
       }}>
-        <span style={{ color: "#5f7f9e" }}># scroll to deploy each layer.</span><br/>
-        Eleven abstraction layers, bottom-up. Same way I build platforms in production: start with the metal, end with the agents, leave nothing manual in between.
+        Tools grouped by the job they do. Filter by engagement to see what each one actually ran on.
+      </p>
+
+      {/* engagement filter */}
+      <div role="group" aria-label="Filter tools by engagement" style={{
+        display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22,
+      }}>
+        {[{ key: "all", label: "All engagements", color: "#42e0ff" }, ...ctxs].map((c) => {
+          const on = sel === c.key;
+          return (
+            <button key={c.key} onClick={() => setSel(c.key)} aria-pressed={on} style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              padding: "7px 13px", borderRadius: 999, cursor: "pointer",
+              fontFamily: MONO, fontSize: 11.5, letterSpacing: "0.02em",
+              color: on ? "#03101f" : "#c9dcee",
+              background: on ? c.color : "rgba(7,27,49,0.7)",
+              border: `1px solid ${on ? c.color : "rgba(66,224,255,0.22)"}`,
+              fontWeight: on ? 700 : 500,
+              transition: "background 0.2s, color 0.2s, border-color 0.2s",
+            }}>
+              <span style={{
+                width: 7, height: 7, borderRadius: "50%",
+                background: on ? "#03101f" : c.color,
+              }} />
+              {c.label}
+            </button>
+          );
+        })}
       </div>
 
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) minmax(360px, 580px)",
-        gap: 36, alignItems: "start",
-      }}>
-        <div ref={innerRef} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {layers.map((layer, i) => {
-            const localP = startP + i * step;
-            const reveal = Math.max(0, Math.min(1, (p - localP) * 12));
-            const settled = Math.max(0, Math.min(1, (p - localP - 0.04) * 14));
-            return (
-              <LayerLog key={layer.key} layer={layer} idx={i} reveal={reveal} settled={settled} t={t} active={i === activeIdx} />
-            );
-          })}
-        </div>
+      {/* toolbox table */}
+      <div style={{ borderTop: "1px solid rgba(66,224,255,0.16)" }}>
+        {D2.toolbox.map((row, i) => (
+          <ToolRow key={row.key} row={row} sel={sel} ctxColor={ctxColor}
+                   isMobile={isMobile} reveal={clamp01((p - 0.04) * 6 - i * 0.12)} />
+        ))}
+      </div>
 
-        <div style={isMobile
-          ? { height: "min(460px, 78vw)", marginTop: 8 }
-          : { position: "sticky", top: 80, height: "min(660px, 82vh)" }
-        }>
-          <StackTower layers={layers} progress={p} startP={startP} step={step} activeIdx={activeIdx} isMobile={isMobile} />
+      {/* flows */}
+      <div style={{ marginTop: 64 }}>
+        <h3 style={{
+          fontFamily: "'Orbitron', monospace", fontSize: "clamp(1.1rem, 2vw, 1.4rem)",
+          fontWeight: 800, letterSpacing: "0.1em", color: "#edf7ff", margin: "0 0 8px",
+        }}><span style={{ color: "#42e0ff" }}>./</span>FLOWS</h3>
+        <p style={{
+          color: "#a8bfd6", fontSize: 13, lineHeight: 1.7, maxWidth: 640,
+          margin: "0 0 22px", fontFamily: MONO,
+        }}>
+          How work moves on each engagement, in the order it happens.
+        </p>
+        <div style={{ borderTop: "1px solid rgba(66,224,255,0.16)" }}>
+          {D2.flows.map((f, i) => (
+            <FlowRow key={f.key} flow={f} color={ctxColor[f.ctx]} dim={sel !== "all" && sel !== f.ctx}
+                     isMobile={isMobile} reveal={clamp01((p - 0.42) * 5 - i * 0.12)} />
+          ))}
         </div>
       </div>
     </section>
   );
 }
 
-function LayerLog({ layer, idx, reveal, settled, t, active }) {
-  const [hover, setHover] = useS(false);
-  const live = (Math.sin(t * 1.6 + idx * 0.7) + 1) / 2;
-
+function ToolRow({ row, sel, ctxColor, isMobile, reveal }) {
+  const rowActive = sel === "all" || row.tools.some((t) => t.in.length === 0 || t.in.includes(sel));
   return (
-    <div
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        position: "relative",
-        opacity: active ? 1 : 0.25 + reveal * 0.75,
-        transform: `translateX(${(1 - reveal) * -28}px) scale(${active ? 1.015 : 1})`,
-        transition: "opacity 0.25s, transform 0.25s, box-shadow 0.25s, background 0.25s",
-        padding: "14px 16px 14px 22px",
-        background: active
-          ? `linear-gradient(90deg, ${layer.color}22, ${layer.color}06 55%, transparent)`
-          : settled > 0.5
-          ? `linear-gradient(90deg, ${layer.color}14, transparent 60%)`
-          : "transparent",
-        borderRadius: 8,
-        boxShadow: active ? `inset 3px 0 0 ${layer.color}, 0 0 26px ${layer.color}1f` : "none",
-      }}
-    >
-      <div style={{
-        position: "absolute", left: 6, top: 18,
-        width: 2, height: settled > 0.3 ? "calc(100% - 18px)" : 0,
-        background: layer.color,
-        opacity: 0.6, transition: "height 0.4s ease",
-        boxShadow: `0 0 6px ${layer.color}`,
-      }} />
-      <div style={{
-        position: "absolute", left: 0, top: 14,
-        width: 14, height: 14, borderRadius: "50%",
-        background: settled > 0.5 ? layer.color : "#03101f",
-        border: `2px solid ${layer.color}`,
-        boxShadow: settled > 0.5
-          ? `0 0 ${8 + live * 10}px ${layer.color}`
-          : `0 0 4px ${layer.color}88`,
-        transition: "background 0.4s",
-      }} />
-
-      <div style={{
-        display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap",
-        fontFamily: "'JetBrains Mono', monospace",
-      }}>
+    <div style={{
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "220px 1fr",
+      gap: isMobile ? 10 : 24, alignItems: "baseline",
+      padding: isMobile ? "16px 0" : "15px 0",
+      borderBottom: "1px solid rgba(66,224,255,0.16)",
+      opacity: (rowActive ? 1 : 0.35) * (0.15 + reveal * 0.85),
+      transform: `translateY(${(1 - reveal) * 14}px)`,
+      transition: "opacity 0.3s",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ width: 8, height: 8, borderRadius: 2, background: row.color, flexShrink: 0 }} />
         <span style={{
-          fontSize: 10, color: layer.color, letterSpacing: "0.16em",
-          fontWeight: 700,
-        }}>{layer.tier}</span>
-        <span style={{ color: "#5f7f9e", fontSize: 11 }}>
-          {settled > 0.6 ? "✓ deployed" : reveal > 0.3 ? "⸬ deploying…" : "○ pending"}
-        </span>
+          fontFamily: "'Orbitron', monospace", fontSize: 13, fontWeight: 700,
+          letterSpacing: "0.04em", color: "#edf7ff",
+        }}>{row.title}</span>
       </div>
-
-      <div style={{
-        color: "#edf7ff", fontSize: 17, fontWeight: 700, marginTop: 4,
-        fontFamily: "'Orbitron', monospace", letterSpacing: "0.02em",
-      }}>
-        {layer.title}
-      </div>
-      <div style={{
-        color: "#a8bfd6", fontSize: 12, marginTop: 4,
-        fontFamily: "'JetBrains Mono', monospace",
-      }}>
-        {layer.blurb}
-      </div>
-
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 10 }}>
-        {layer.tools.map((tool, k) => (
-          <span key={tool} style={{
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: 10.5, padding: "2px 8px",
-            borderRadius: 3, border: `1px solid ${layer.color}55`,
-            background: `${layer.color}12`,
-            color: layer.color,
-            opacity: Math.min(1, reveal * 1.5 - k * 0.05),
-            transform: `translateY(${(1 - reveal) * 6}px)`,
-            transition: `all 0.3s ${k * 0.04}s`,
-          }}>{tool}</span>
-        ))}
-      </div>
-
-      <div style={{
-        marginTop: 10, fontSize: 11.5, color: "#5f7f9e",
-        fontFamily: "'JetBrains Mono', monospace",
-        fontStyle: "italic",
-        opacity: settled,
-      }}>
-        ⸬ {layer.magic}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+        {row.tools.map((tool) => {
+          const everywhere = tool.in.length === 0;
+          const hit = sel === "all" || everywhere || tool.in.includes(sel);
+          return (
+            <span key={tool.n} style={{
+              display: "inline-flex", alignItems: "center", gap: 7,
+              fontFamily: MONO, fontSize: 12, padding: "4px 10px", borderRadius: 4,
+              color: hit ? "#edf7ff" : "#5f7f9e",
+              background: hit ? "rgba(66,224,255,0.07)" : "transparent",
+              border: `1px solid ${hit ? "rgba(66,224,255,0.28)" : "rgba(66,224,255,0.1)"}`,
+              opacity: hit ? 1 : 0.5,
+              transition: "opacity 0.25s, color 0.25s, background 0.25s, border-color 0.25s",
+            }}>
+              {tool.n}
+              {sel === "all" && !everywhere && (
+                <span aria-hidden="true" style={{ display: "inline-flex", gap: 3 }}>
+                  {tool.in.map((k) => (
+                    <i key={k} style={{ width: 5, height: 5, borderRadius: "50%", background: ctxColor[k] }} />
+                  ))}
+                </span>
+              )}
+            </span>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-/* ─── STACK TOWER — the platform these layers build, in faux-3D ───── */
-function StackTower({ layers, progress, startP, step, activeIdx, isMobile }) {
-  const t = useTick();
-  const bob = Math.sin(t * 0.7) * (isMobile ? 3 : 6);
-
-  const n = layers.length;
-  const gap = isMobile ? 28 : 38;
-  const plateW = isMobile ? 150 : 230;
-  const plateH = isMobile ? 92 : 132;
-  const baseScale = isMobile ? 0.8 : 1;
-
-  const settledArr = layers.map((_, i) => {
-    const lp = startP + i * step;
-    return Math.max(0, Math.min(1, (progress - lp - 0.04) * 14));
-  });
-  const deployed = settledArr.filter((s) => s > 0.5).length;
-  const active = layers[activeIdx] || layers[0];
-
+function FlowRow({ flow, color, dim, isMobile, reveal }) {
+  const n = flow.steps.length;
   return (
     <div style={{
-      width: "100%", height: "100%", position: "relative",
-      borderRadius: 14, overflow: "hidden",
-      border: "1px solid rgba(66,224,255,0.16)",
-      background: "radial-gradient(120% 90% at 50% 16%, rgba(12,39,67,0.55), rgba(2,11,22,0.97))",
-      boxShadow: "inset 0 0 90px rgba(66,224,255,0.05)",
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "220px 1fr",
+      gap: isMobile ? 14 : 24, alignItems: "start",
+      padding: "20px 0",
+      borderBottom: "1px solid rgba(66,224,255,0.16)",
+      opacity: (dim ? 0.3 : 1) * (0.15 + reveal * 0.85),
+      transform: `translateY(${(1 - reveal) * 14}px)`,
+      transition: "opacity 0.3s",
     }}>
-      {/* status bar */}
-      <div style={{
-        position: "absolute", top: 0, left: 0, right: 0, zIndex: 6,
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-        padding: "10px 14px",
-        fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
-        color: "#5f7f9e", letterSpacing: "0.06em",
-        background: "linear-gradient(180deg, rgba(2,11,22,0.92), transparent)",
-        pointerEvents: "none",
-      }}>
-        <span>⸬ platform.stack</span>
-        <span style={{ color: "#5cffb1" }}>{deployed}/{n} layers ▲</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
+        <span style={{
+          fontFamily: "'Orbitron', monospace", fontSize: 13, fontWeight: 700,
+          letterSpacing: "0.04em", color: "#edf7ff",
+        }}>{flow.title}</span>
       </div>
 
-      {/* iso stage */}
-      <div style={{
-        position: "absolute", inset: 0, overflow: "hidden",
-        perspective: 1400, perspectiveOrigin: "50% 40%",
+      <ol style={{
+        listStyle: "none", margin: 0, padding: 0, position: "relative",
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : `repeat(${n}, minmax(0, 1fr))`,
+        gap: isMobile ? 14 : 12,
       }}>
-        {/* grid floor */}
-        <div style={{
-          position: "absolute", left: "50%", top: "64%",
-          width: 540, height: 540, marginLeft: -270, marginTop: -270,
-          transform: `rotateX(60deg) rotateZ(-42deg) scale(${baseScale})`,
-          backgroundImage:
-            "linear-gradient(rgba(66,224,255,0.09) 1px, transparent 1px), linear-gradient(90deg, rgba(66,224,255,0.09) 1px, transparent 1px)",
-          backgroundSize: "40px 40px",
-          opacity: 0.45,
-          WebkitMaskImage: "radial-gradient(circle at 50% 50%, #000 28%, transparent 70%)",
-          maskImage: "radial-gradient(circle at 50% 50%, #000 28%, transparent 70%)",
+        {/* connector, drawn in once on reveal */}
+        <span aria-hidden="true" style={isMobile ? {
+          position: "absolute", left: 4, top: 6, bottom: 6, width: 1,
+          background: `${color}66`, transformOrigin: "top",
+          transform: `scaleY(${reveal})`,
+        } : {
+          position: "absolute", left: 4, right: 4, top: 4, height: 1,
+          background: `${color}66`, transformOrigin: "left",
+          transform: `scaleX(${reveal})`,
         }} />
-
-        {/* tower */}
-        <div style={{
-          position: "absolute", left: "50%", top: "57%",
-          transformStyle: "preserve-3d",
-          transform: `translate(-50%,-50%) scale(${baseScale}) rotateX(60deg) rotateZ(-42deg) translateZ(${bob}px)`,
-        }}>
-          {layers.map((layer, i) => {
-            const lp = startP + i * step;
-            const reveal = Math.max(0, Math.min(1, (progress - lp) * 12));
-            const settled = settledArr[i];
-            if (reveal < 0.02) return null;
-            const isActive = i === activeIdx;
-            const z = i * gap + (isActive ? 15 : 0) + (1 - reveal) * 90;
-            const pulse = (Math.sin(t * 1.6 + i * 0.5) + 1) / 2;
-            const hot = Math.floor(pulse * layer.tools.length);
-
-            return (
-              <div key={layer.key} style={{
-                position: "absolute",
-                width: plateW, height: plateH,
-                left: -plateW / 2, top: -plateH / 2,
-                transform: `translateZ(${z}px)`,
-                transformStyle: "preserve-3d",
-                opacity: reveal,
-                transition: "opacity 0.25s",
-              }}>
-                {/* slab face */}
-                <div style={{
-                  position: "absolute", inset: 0, borderRadius: 18,
-                  background: `linear-gradient(135deg, ${layer.color}28, ${layer.color}0a 55%, ${layer.color}16)`,
-                  border: `1px solid ${layer.color}${isActive ? "" : "66"}`,
-                  boxShadow: isActive
-                    ? `0 0 38px ${layer.color}88, inset 0 0 34px ${layer.color}26`
-                    : `0 0 16px ${layer.color}30, inset 0 0 22px ${layer.color}12`,
-                  backdropFilter: "blur(3px)",
-                }} />
-                {/* top sheen */}
-                <div style={{
-                  position: "absolute", left: 0, right: 0, top: 0, height: "44%",
-                  borderRadius: "18px 18px 60% 60%",
-                  background: `linear-gradient(180deg, ${layer.color}22, transparent)`,
-                  pointerEvents: "none",
-                }} />
-                {/* tier code */}
-                <div style={{
-                  position: "absolute", left: 16, top: 11,
-                  fontFamily: "'Orbitron', monospace", fontWeight: 800,
-                  fontSize: plateW > 180 ? 17 : 13,
-                  color: layer.color, letterSpacing: "0.12em",
-                  textShadow: `0 0 12px ${layer.color}`,
-                }}>{layer.tier}</div>
-                {/* svc count */}
-                <div style={{
-                  position: "absolute", right: 14, top: 14,
-                  fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: 9.5, color: layer.color, opacity: 0.75,
-                }}>{layer.tools.length}×svc</div>
-                {/* tool dots */}
-                <div style={{
-                  position: "absolute", left: 16, right: 14, bottom: 27,
-                  display: "flex", gap: 7, flexWrap: "wrap",
-                }}>
-                  {layer.tools.map((tool, k) => (
-                    <span key={tool} style={{
-                      width: 6, height: 6, borderRadius: "50%",
-                      background: layer.color,
-                      opacity: settled > 0.5 ? (k === hot ? 1 : 0.4) : 0.18,
-                      boxShadow: k === hot ? `0 0 ${4 + pulse * 6}px ${layer.color}` : "none",
-                      transition: "opacity 0.2s",
-                    }} />
-                  ))}
-                </div>
-                {/* title */}
-                <div style={{
-                  position: "absolute", left: 16, right: 14, bottom: 9,
-                  fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: plateW > 180 ? 10.5 : 8.5,
-                  color: "#cfe7ff", opacity: 0.7,
-                  whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                }}>{layer.title}</div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* active-layer HUD */}
-      <div style={{
-        position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 6,
-        padding: "12px 16px 14px",
-        background: "linear-gradient(0deg, rgba(2,11,22,0.97), rgba(2,11,22,0.6) 70%, transparent)",
-        borderTop: `1px solid ${active.color}33`,
-        fontFamily: "'JetBrains Mono', monospace",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
-          <span style={{
-            width: 9, height: 9, borderRadius: "50%", background: active.color,
-            boxShadow: `0 0 10px ${active.color}`,
-          }} />
-          <span style={{ color: active.color, fontSize: 10, fontWeight: 700, letterSpacing: "0.14em" }}>
-            {active.tier}
-          </span>
-          <span style={{ color: "#edf7ff", fontSize: 13, fontFamily: "'Orbitron', monospace", fontWeight: 700, letterSpacing: "0.03em" }}>
-            {active.title}
-          </span>
-          <span style={{ marginLeft: "auto", color: "#5f7f9e", fontSize: 10 }}>
-            {String(activeIdx + 1).padStart(2, "0")}/{String(n).padStart(2, "0")}
-          </span>
-        </div>
-        <div style={{ color: "#5f7f9e", fontSize: 10.5, lineHeight: 1.5, fontStyle: "italic" }}>
-          ⸬ {active.magic}
-        </div>
-        <div style={{ marginTop: 10, height: 3, borderRadius: 2, background: "rgba(66,224,255,0.08)", overflow: "hidden" }}>
-          <div style={{
-            height: "100%", width: `${((activeIdx + 1) / n) * 100}%`,
-            background: `linear-gradient(90deg, ${active.color}, ${active.color}88)`,
-            boxShadow: `0 0 8px ${active.color}`,
-            transition: "width 0.3s",
-          }} />
-        </div>
-      </div>
+        {flow.steps.map((s, k) => (
+          <li key={s.s} style={{
+            position: "relative", fontFamily: MONO,
+            paddingTop: isMobile ? 0 : 18, paddingLeft: isMobile ? 22 : 0,
+          }}>
+            <span aria-hidden="true" style={{
+              position: "absolute", left: 0, top: isMobile ? 4 : 0,
+              width: 9, height: 9, borderRadius: "50%",
+              background: "#03101f", border: `2px solid ${color}`,
+            }} />
+            <div style={{ color: "#edf7ff", fontSize: 12.5, fontWeight: 700 }}>
+              <span style={{ color, fontWeight: 600, marginRight: 6 }}>{k + 1}</span>{s.s}
+            </div>
+            <div style={{ color: "#a8bfd6", fontSize: 11.5, lineHeight: 1.5, marginTop: 3 }}>{s.t}</div>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
@@ -349,7 +203,7 @@ function ExperienceSection() {
 
   return (
     <section id="experience" ref={ref} style={sectionStyle}>
-      <SectionHead cmd="$ kubectl describe deployment/filip-csupka --show-history" title="EXPERIENCE" idx="02" total="06" />
+      <SectionHead cmd="$ kubectl describe deployment/filip-csupka --show-history" title="EXPERIENCE" />
 
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "32px 1fr" : "60px 1fr", gap: isMobile ? 12 : 24 }}>
         <div style={{ position: "relative" }}>
@@ -380,8 +234,7 @@ function ExperienceSection() {
 function ExpRow({ job, idx, progress, open, onToggle, total }) {
   const reveal = Math.max(0, Math.min(1, (progress - 0.05) * 4 - idx * 0.15));
   const t = useTick();
-  const palette = ["#42e0ff", "#5cffb1", "#ffc64a", "#ff5f80", "#a78bfa"];
-  const color = palette[idx % palette.length];
+  const color = job.color;
 
   return (
     <div style={{
@@ -410,7 +263,6 @@ function ExpRow({ job, idx, progress, open, onToggle, total }) {
           ? `linear-gradient(135deg, rgba(7,27,49,0.95), rgba(12,39,67,0.95))`
           : "rgba(7,27,49,0.7)",
         border: `1px solid ${open ? color : "rgba(66,224,255,0.2)"}`,
-        borderLeft: `4px solid ${color}`,
         borderRadius: 8, overflow: "hidden",
         boxShadow: open ? `0 12px 30px rgba(0,0,0,0.4), 0 0 30px ${color}26` : "none",
         transition: "all 0.3s",
@@ -422,16 +274,14 @@ function ExpRow({ job, idx, progress, open, onToggle, total }) {
           fontFamily: "'JetBrains Mono', monospace",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <span style={{ color: "#5f7f9e", fontSize: 11 }}>
-              {String(total - idx).padStart(2, "0")}
-            </span>
             <span style={{ color: color, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>
-              ● job/{job.id}
+              ● {job.org}
             </span>
-            <span style={{ marginLeft: "auto", color: "#5cffb1", fontSize: 11 }}>
-              status: <strong>Running</strong>
+            <span style={{ color: "#a8bfd6", fontSize: 11 }}>{job.period}</span>
+            <span style={{ marginLeft: "auto", color: job.status === "Running" ? "#5cffb1" : "#5f7f9e", fontSize: 11 }}>
+              status: <strong>{job.status}</strong>
             </span>
-            <span style={{ color: "#5f7f9e", fontSize: 11 }}>{open ? "▾" : "▸"}</span>
+            <span aria-hidden="true" style={{ color: "#5f7f9e", fontSize: 11 }}>{open ? "▾" : "▸"}</span>
           </div>
           <div style={{
             color: "#edf7ff", fontSize: 17, fontWeight: 700, marginTop: 8,
@@ -443,7 +293,7 @@ function ExpRow({ job, idx, progress, open, onToggle, total }) {
         </button>
 
         <div style={{
-          maxHeight: open ? 1200 : 0,
+          maxHeight: open ? 2400 : 0,
           overflow: "hidden",
           transition: "max-height 0.5s ease",
         }}>
@@ -467,6 +317,26 @@ function ExpRow({ job, idx, progress, open, onToggle, total }) {
               ))}
             </div>
 
+            {job.situations && job.situations.length > 0 && (
+              <div style={{ marginTop: 18 }}>
+                <div style={{
+                  fontSize: 11, color: "#5f7f9e", letterSpacing: "0.1em", textTransform: "uppercase",
+                  marginBottom: 8,
+                }}>⸬ situations ({job.situations.length})</div>
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  {job.situations.map((s) => (
+                    <div key={s.t} style={{
+                      padding: "10px 0", borderTop: `1px solid ${color}26`,
+                      fontFamily: "'JetBrains Mono', monospace",
+                    }}>
+                      <div style={{ color: "#edf7ff", fontSize: 12.5, fontWeight: 700 }}>{s.t}</div>
+                      <div style={{ color: "#a8bfd6", fontSize: 12, lineHeight: 1.6, marginTop: 2 }}>{s.d}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: 6 }}>
               {job.tags.map((tag) => <Tag key={tag} text={tag} color={color} />)}
             </div>
@@ -481,7 +351,7 @@ function HighlightLog({ text, idx, color, active }) {
   const t = useTick();
   return (
     <div style={{
-      display: "grid", gridTemplateColumns: "70px 16px 1fr",
+      display: "grid", gridTemplateColumns: "34px 16px 1fr",
       gap: 10, alignItems: "baseline",
       fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5,
       transform: active ? "translateX(0)" : "translateX(-8px)",
@@ -489,7 +359,7 @@ function HighlightLog({ text, idx, color, active }) {
       transition: `all 0.4s ease ${idx * 0.06}s`,
     }}>
       <span style={{ color: "#5f7f9e", fontSize: 10 }}>
-        {new Date(Date.now() - idx * 60000).toTimeString().slice(0, 8)}
+        [{String(idx + 1).padStart(2, "0")}]
       </span>
       <span style={{ color, opacity: 0.6 + (Math.sin(t * 2 + idx) + 1) / 2 * 0.4 }}>⸬</span>
       <span style={{ color: "#a8bfd6", lineHeight: 1.6 }}>{text}</span>
@@ -525,7 +395,7 @@ function AboutSection() {
 
   return (
     <section id="about" ref={ref} style={sectionStyle}>
-      <SectionHead cmd="$ kubectl describe human/filip-csupka -o yaml" title="ABOUT ME" idx="03" total="06" />
+      <SectionHead cmd="$ kubectl describe human/filip-csupka -o yaml" title="ABOUT ME" />
 
       <div style={{
         color: "#a8bfd6", fontSize: 13, lineHeight: 1.7, maxWidth: 760,
@@ -696,7 +566,7 @@ function ContactSection() {
 
   return (
     <section id="contact" ref={ref} style={sectionStyle}>
-      <SectionHead cmd="$ kubectl exec -it filip-csupka -- /bin/contact" title="CONTACT" idx="04" total="06" />
+      <SectionHead cmd="$ kubectl exec -it filip-csupka -- /bin/contact" title="CONTACT" />
 
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr)", gap: 28, maxWidth: 760, margin: "0 auto" }}>
         <div style={{
