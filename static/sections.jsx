@@ -277,8 +277,7 @@ function ExpRow({ job, idx, progress, open, onToggle, total }) {
             <span style={{ color: color, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>
               ● {job.org}
             </span>
-            <span style={{ color: "#a8bfd6", fontSize: 11 }}>{job.period}</span>
-            <span style={{ marginLeft: "auto", color: job.status === "Running" ? "#5cffb1" : "#5f7f9e", fontSize: 11 }}>
+            <span style={{ marginLeft: "auto", color: "#5cffb1", fontSize: 11 }}>
               status: <strong>{job.status}</strong>
             </span>
             <span aria-hidden="true" style={{ color: "#5f7f9e", fontSize: 11 }}>{open ? "▾" : "▸"}</span>
