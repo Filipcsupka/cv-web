@@ -29,9 +29,7 @@ Thumbs.db
 *.md
 !README.md
 
-# ruflo / claude
+# claude
 .claude
-.claude-flow
-.mcp.json
 CLAUDE.md
 CLAUDE.local.md
