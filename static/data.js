@@ -41,7 +41,7 @@ window.CV_DATA = {
       { n: "RKE2 / VMware VCD", in: ["sec"] }, { n: "Talos", in: ["hc"] }, { n: "AWS", in: [] },
     ]},
     { key: "k8s", title: "Kubernetes and OpenShift", color: "#326CE5", tools: [
-      { n: "Kubernetes", in: ["ocp", "hc", "sec", "lab"] }, { n: "OpenShift 4.18–4.20", in: ["ocp"] }, { n: "ACM hub / spoke", in: ["ocp"] },
+      { n: "Kubernetes", in: ["ocp", "hc", "sec", "lab"] }, { n: "OpenShift", in: ["ocp"] }, { n: "ACM hub / spoke", in: ["ocp"] },
       { n: "OLM operators", in: ["ocp"] }, { n: "k3s", in: ["lab"] }, { n: "Containers / OCI", in: [] },
     ]},
     { key: "gitops", title: "Packaging and GitOps", color: "#EF7B4D", tools: [
@@ -82,17 +82,17 @@ window.CV_DATA = {
   // FLOWS — how work actually moves, one row per workstream
   flows: [
     { key: "delivery-ocp", title: "Cluster change delivery", ctx: "ocp", steps: [
-      { s: "Chart",   t: "~100 custom Helm charts" },
+      { s: "Chart",   t: "custom Helm charts" },
       { s: "Render",  t: "Helmfile per cluster" },
       { s: "Review",  t: "PR + render check" },
       { s: "Sync",    t: "Argo CD app-of-apps" },
       { s: "Adopt",   t: "live diff, auto-sync off first" },
     ]},
     { key: "upgrade-ocp", title: "OpenShift upgrade", ctx: "ocp", steps: [
-      { s: "Read",    t: "Upgradeable=False, operator limits" },
-      { s: "Order",   t: "operator sequence, API removals" },
+      { s: "Read",    t: "blockers, operator limits" },
+      { s: "Order",   t: "operator order, API removals" },
       { s: "QA first", t: "ACM policy, hub then spoke" },
-      { s: "Approve", t: "manual InstallPlans" },
+      { s: "Approve", t: "operator approvals" },
       { s: "Verify",  t: "ClusterOperators, nodes, drains" },
     ]},
     { key: "delivery-hc", title: "Release to tenant environments", ctx: "hc", steps: [
@@ -112,7 +112,7 @@ window.CV_DATA = {
     ]},
     { key: "loadtest", title: "Load test", ctx: "perf", steps: [
       { s: "Rig",      t: "Terraform + Ansible on Hetzner" },
-      { s: "Calibrate", t: "local sink, CPU < 70%, 0 drops" },
+      { s: "Calibrate", t: "own ceiling vs a local sink" },
       { s: "Scenarios", t: "k6: baseline, spike, stress" },
       { s: "Observe",  t: "vmagent, VictoriaMetrics, Grafana" },
       { s: "Report",   t: "ceiling, bottleneck, advice" },
@@ -144,8 +144,8 @@ window.CV_DATA = {
         "Wrote small Go tools where off-the-shelf ones fell short (RBAC audit, TCP sweeper) and cross-checked scanners (Trivy against Grype) before trusting a result.",
       ],
       situations: [
-        { t: "One load box can't carry the target", d: "Built a disposable multi-VM k6 rig and measured its own ceiling first, about 30k req/s on three small VMs, before touching the client." },
-        { t: "Is the generator the bottleneck?", d: "Stepped arrival-rate runs against a local sink with CPU under 70% and zero drops as pass criteria. Only then are the client numbers trustworthy." },
+        { t: "One load box can't carry the target", d: "Built a disposable multi-VM k6 rig and measured its own ceiling first, before touching the client." },
+        { t: "Is the generator the bottleneck?", d: "Stepped runs against a local sink with clear pass criteria. Only then are the client numbers trustworthy." },
         { t: "CDN assumed to protect everything", d: "Tested direct-to-origin with preserved hostnames in all four environments. Bypass confirmed, reported with the difference between an auth challenge and a breach." },
         { t: "Is the shared cache reachable?", d: "Bounded probes from in-scope workloads in every environment. A reachability matrix instead of opinions, plus the exact fix." },
         { t: "Do environments really isolate?", d: "Real-token and permission probes across every environment pair. Database grants held, network and ingress hostname overlap did not." },
@@ -161,17 +161,17 @@ window.CV_DATA = {
       focus: "ACM hub/spoke, upgrades, operators, storage, production reliability",
       summary: "Bare-metal OpenShift for a public-sector client: prod, QA and lab hubs with spokes, kept healthy and upgraded without drama.",
       highlights: [
-        "Operate ACM hub/spoke OpenShift 4.18–4.20 on bare metal across prod, QA and lab, including hosted-control-plane spokes.",
-        "About 100 custom Helm charts carry operators and cluster configuration. Flow: chart, Helmfile render per cluster, PR with render check in GitHub Actions, Argo CD app-of-apps.",
-        "Run operator and platform upgrades through ACM policy and OLM manual approvals, with the blockers mapped before anything is clicked.",
-        "Storage and backup: ODF / Ceph, OADP, etcd backups. Policy and secrets: Kyverno, ACS, Compliance Operator, Vault with External Secrets.",
-        "Observability: Prometheus and Alertmanager, Loki, Tempo and OpenTelemetry, NetObserv, Thanos. Incidents end in a root cause and a runbook.",
+        "Operate hub/spoke OpenShift on bare metal across production, QA and lab.",
+        "Custom Helm charts carry operators and cluster configuration. Flow: chart, render per cluster, PR with a render check in CI, Argo CD sync.",
+        "Run operator and platform upgrades through policy and controlled approvals, with the blockers mapped before anything is clicked.",
+        "Storage and backup, policy and compliance, secrets management: ODF / Ceph, OADP, Kyverno, ACS, Vault.",
+        "Observability with Prometheus, Loki, Tempo and Thanos. Incidents end in a root cause and a runbook.",
       ],
       situations: [
         { t: "Operator upgrade deadlocked on the prod hub", d: "Three stacked causes: registry proxy-cache errors, a pruned catalog and a stray manual approval. Reinstalled the operator stack with the data plane untouched." },
-        { t: "QA cluster wedged for about 29 hours", d: "Pods stuck creating, nodes Ready. Registry crashloop led to process exhaustion and CRI-O timeouts on near-full storage. Unblocked writes, rolling reboots, fast-path runbook. Dropped my own wrong OOM theory before it spread." },
-        { t: "OpenShift 4.19 to 4.20 flagged Upgradeable=False", d: "Mapped operator version limits and removed-API acks, set the order, ran 4.18 to 4.19 via ACM policy including a drain stuck on a PDB." },
-        { t: "GitOps operator 1.17 to 1.21", d: "Checked every breaking change against our config, rolled QA through a chart bump, both clusters healthy." },
+        { t: "A whole QA cluster wedged for a day", d: "Pods stuck creating while nodes looked Ready. Registry crashloop, process exhaustion and near-full storage. Unblocked it, wrote a fast-path runbook, dropped my own wrong theory before it spread." },
+        { t: "Cluster upgrade refused by the cluster itself", d: "Mapped operator version limits and removed-API blockers, set the order, ran the upgrade through policy including a drain stuck on a PDB." },
+        { t: "GitOps operator upgrade", d: "Checked every breaking change against our config and rolled QA first." },
         { t: "Security namespace down, symptom pointed elsewhere", d: "Collector log spam hid missing SCC role bindings after an operator crash. Re-reconcile fixed it." },
       ],
       tags: ["OpenShift", "ACM", "OLM", "Helm", "Helmfile", "Argo CD", "ODF / Ceph", "Kyverno", "Vault", "GitHub Actions", "Loki", "Tempo", "Thanos", "Runbooks"],
@@ -185,9 +185,9 @@ window.CV_DATA = {
       focus: "AKS, Hetzner, multi-tenant Kubernetes, GitOps delivery",
       summary: "Building and operating clusters for hospital software where every namespace wants privacy, uptime and a little emotional support.",
       highlights: [
-        "Operate multiple AKS clusters and a larger Hetzner Kubernetes platform across development, test, production and customer-dedicated environments.",
+        "Operate AKS clusters and a larger Hetzner Kubernetes platform across development, test, production and customer-dedicated environments.",
         "Own GitOps delivery from container build to Argo CD sync, using GitLab CI templates, Kustomize, Helm and sealed secrets to keep releases reproducible.",
-        "Scaled a multi-tenant cluster to thousands of pods with namespace isolation, quotas and enough observability to answer questions before they become incidents.",
+        "Scaled a multi-tenant cluster with namespace isolation, quotas and enough observability to answer questions before they become incidents.",
         "Debug service connectivity, PostgreSQL, MongoDB, Kafka-compatible (Redpanda) flows and tracing issues across teams when the symptom says one thing and the root cause says another.",
       ],
       situations: [
@@ -207,10 +207,10 @@ window.CV_DATA = {
       focus: "Hetzner k3s, home GPU worker, RAG chatbot, Kubernetes AI agent, full GitOps",
       summary: "Personal playground for learning the AI stack hands-on. Built to experiment, break things safely and carry the patterns into real projects.",
       highlights: [
-        "k3s control-plane on Hetzner plus an NVIDIA GPU worker at home (RTX 2070) joined over Tailscale. One cluster, two locations.",
+        "k3s control-plane on Hetzner plus a GPU worker at home joined over Tailscale. One cluster, two locations.",
         "All apps deployed via Argo CD GitOps with selfHeal and prune. No manual kubectl apply.",
-        "AI chat (ai.filipcsupka.online): RAG chatbot answering questions about me. Ollama qwen3:8b on the GPU node, nomic-embed-text embeddings, ChromaDB, FastAPI. Content is markdown; push, CI rebuilds, pod re-ingests.",
-        "k8s-ai-agent: Alertmanager fires, a LangGraph ReAct loop (max 120 s, 3 concurrent) calls k8s API tools, Ollama diagnoses the root cause, Slack gets the report.",
+        "AI chat (ai.filipcsupka.online): RAG chatbot answering questions about me. Ollama on the GPU node, embeddings, ChromaDB, FastAPI. Content is markdown; push, CI rebuilds, pod re-ingests.",
+        "k8s-ai-agent: Alertmanager fires, a LangGraph agent loop calls k8s API tools, Ollama diagnoses the root cause, Slack gets the report.",
         "Observability: kube-prometheus-stack, Loki, Grafana, DCGM exporter for GPU metrics. CI/CD: GitHub Actions to GHCR, image tag bump in the infra repo, Argo CD deploys.",
       ],
       situations: [],
